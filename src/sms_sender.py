@@ -16,16 +16,26 @@ class SMSSender:
             cls._instance.initialized = False
         return cls._instance
 
-    def __init__(self, base_url, password) -> None:
+    def __init__(self, base_url, password, retries=5) -> None:
         if self.initialized:
             return
 
         self.base_url = base_url
         self.password = password
-        self.setup_driver()
-        self.login()
-        self.navigate_to_sms_page()
-        self.initialized = True
+
+        while retries > 0:
+            try:
+                self.setup_driver()
+                self.login()
+                self.navigate_to_sms_page()
+                self.initialized = True
+                break
+            except Exception as e:
+                retries -= 1
+                if hasattr(self, 'driver'):
+                    self.driver.quit()
+                if retries == 0:
+                    raise Exception(f"Failed to initialize after 3 retries: {str(e)}")
 
     def setup_driver(self) -> None:
         options = Options()
@@ -59,31 +69,48 @@ class SMSSender:
 
     def navigate_to_sms_page(self) -> None:
         try:
-            # Wait for advanced button and click
+            print("Starting navigation to SMS page")
+
+            # Wait for interface name to be populated
+            print("Waiting for #interfaceNamenterfaceName to be populated...")
+            self.wait.until(
+                lambda driver: driver.find_element(By.ID, "interfaceName").get_attribute("value") != ""
+            )
+
+            # Find and click advanced button
             advanced_button = self.wait.until(
                 EC.element_to_be_clickable((By.ID, "advanced"))
             )
+
+            print("Found advanced button, clicking...")
             advanced_button.click()
 
             # Wait for SMS inbox link and click
+            print("Waiting for SMS inbox link...")
             sms_inbox = self.wait.until(
                 EC.element_to_be_clickable((By.CSS_SELECTOR, "a[url='lteSmsInbox.htm']"))
             )
+            print("Found SMS inbox link, clicking...")
+            time.sleep(.5)
             sms_inbox.click()
 
             # Wait for new message link and click
+            print("Waiting for new message link...")
             new_msg = self.wait.until(
                 EC.element_to_be_clickable((By.CSS_SELECTOR, "a[url='lteSmsNewMsg.htm']"))
             )
+            print("Found new message link, clicking...")
+            time.sleep(.5)
             new_msg.click()
 
+            print("Successfully navigated to SMS page")
+
         except Exception as e:
+            print(f"Navigation error: {str(e)}")
             raise Exception(f"Navigation failed: {str(e)}")
 
     def send_sms(self, phone_number: str, message: str, retries: int = 3) -> dict:
         try:
-            # self.navigate_to_sms_page()
-
             input_to = self.wait.until(
                 EC.presence_of_element_located((By.ID, "toNumber"))
             )
@@ -105,6 +132,7 @@ class SMSSender:
                     self.driver.quit()
                     self.setup_driver()
                     self.login()
+                    self.navigate_to_sms_page()
                     return self.send_sms(phone_number, message, retries - 1)
                 else:
                     return {"status": "error", "message": "Max retries exceeded"}
