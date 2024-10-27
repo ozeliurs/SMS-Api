@@ -1,9 +1,10 @@
 # Use Python base image
 FROM python:3.9-slim
 
-# Install Firefox and required dependencies
+# Install Chromium and required dependencies
 RUN apt-get update && apt-get install -y \
-    firefox \
+    chromium \
+    chromium-driver \
     wget \
     gcc \
     && rm -rf /var/lib/apt/lists/*
