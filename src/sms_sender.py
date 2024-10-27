@@ -24,6 +24,7 @@ class SMSSender:
         self.password = password
         self.setup_driver()
         self.login()
+        self.navigate_to_sms_page()
         self.initialized = True
 
     def setup_driver(self) -> None:
@@ -81,7 +82,7 @@ class SMSSender:
 
     def send_sms(self, phone_number: str, message: str, retries: int = 3) -> dict:
         try:
-            self.navigate_to_sms_page()
+            # self.navigate_to_sms_page()
 
             input_to = self.wait.until(
                 EC.presence_of_element_located((By.ID, "toNumber"))
