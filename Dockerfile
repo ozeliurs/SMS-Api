@@ -3,7 +3,7 @@ FROM python:3.9-slim
 
 # Install Firefox and required dependencies
 RUN apt-get update && apt-get install -y \
-    firefox-esr \
+    firefox \
     wget \
     gcc \
     && rm -rf /var/lib/apt/lists/*
