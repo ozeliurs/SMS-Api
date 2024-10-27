@@ -4,8 +4,8 @@ import queue
 import threading
 
 from selenium import webdriver
-from selenium.webdriver.firefox.service import Service
-from selenium.webdriver.firefox.options import Options
+from selenium.webdriver.chrome.service import Service
+from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
@@ -46,8 +46,8 @@ class SMSSender:
 
     def setup_driver(self) -> None:
         options = Options()
-        service = Service(log_path=os.devnull)
-        self.driver = webdriver.Firefox(options=options, service=service)
+        service = Service(log_output=os.devnull)
+        self.driver = webdriver.Chrome(options=options, service=service)
         self.wait = WebDriverWait(self.driver, 10)
 
     def login(self) -> None:
