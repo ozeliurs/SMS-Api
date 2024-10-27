@@ -1,11 +1,14 @@
+import os
 import time
+import queue
+import threading
+
 from selenium import webdriver
 from selenium.webdriver.firefox.service import Service
 from selenium.webdriver.firefox.options import Options
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
-import os
 
 class SMSSender:
     _instance = None
@@ -22,6 +25,10 @@ class SMSSender:
 
         self.base_url = base_url
         self.password = password
+
+        self.sms_queue = queue.Queue()
+        self.is_sending = False
+        self.send_lock = threading.Lock()
 
         while retries > 0:
             try:
@@ -111,6 +118,10 @@ class SMSSender:
 
     def send_sms(self, phone_number: str, message: str, retries: int = 3) -> dict:
         try:
+            self.wait.until(
+                EC.invisibility_of_element_located((By.ID, "mask"))
+            )
+
             input_to = self.wait.until(
                 EC.presence_of_element_located((By.ID, "toNumber"))
             )
@@ -126,6 +137,7 @@ class SMSSender:
 
             return {"status": "success", "message": "SMS sent successfully"}
         except Exception as e:
+            print(f"Error sending SMS: {str(e)}, retries left: {retries}, restarting browser...")
             # If there's an error, restart browser and try again
             try:
                 if retries > 0:
@@ -138,6 +150,72 @@ class SMSSender:
                     return {"status": "error", "message": "Max retries exceeded"}
             except Exception as retry_error:
                 return {"status": "error", "message": str(retry_error)}
+
+    def queued_send_sms(self, phone_number: str, message: str) -> dict:
+        """
+        Queues an SMS for sending and waits until it's sent.
+        Returns only after the SMS has been processed.
+        """
+        try:
+            # Create a result container
+            result_container = {"status": None, "message": None}
+
+            with self.send_lock:
+                if not self.is_sending:
+                    self.is_sending = True
+                    try:
+                        # Send directly if no queue
+                        result = self.send_sms(phone_number, message)
+                        result_container["status"] = result["status"]
+                        result_container["message"] = result["message"]
+                    finally:
+                        self.is_sending = False
+                else:
+                    # Queue the message if another one is being sent
+                    self.sms_queue.put((phone_number, message, result_container))
+
+                    # Wait for the message to be processed
+                    while result_container["status"] is None:
+                        time.sleep(0.5)
+                        # Process queue if we're not sending
+                        if not self.is_sending:
+                            self._process_queue()
+
+            return result_container
+
+        except Exception as e:
+            return {"status": "error", "message": f"Queue error: {str(e)}"}
+
+    def _process_queue(self):
+        """
+        Processes any pending SMS in the queue
+        """
+        try:
+            while not self.sms_queue.empty():
+                with self.send_lock:
+                    if not self.is_sending:
+                        self.is_sending = True
+                        try:
+                            # Get next SMS from queue
+                            phone_number, message, result_container = self.sms_queue.get_nowait()
+
+                            # Send the SMS
+                            result = self.send_sms(phone_number, message)
+
+                            # Update result container
+                            result_container["status"] = result["status"]
+                            result_container["message"] = result["message"]
+
+                            # Mark task as done
+                            self.sms_queue.task_done()
+                        finally:
+                            self.is_sending = False
+                    else:
+                        break
+        except queue.Empty:
+            pass
+        except Exception as e:
+            print(f"Error processing queue: {str(e)}")
 
     def __del__(self) -> None:
         if hasattr(self, 'driver'):

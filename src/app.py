@@ -32,7 +32,7 @@ def send_sms_task(job_id: str, phone_number: str, message: str):
     start_time = time.time()
     task_store[job_id]['status'] = 'processing'
 
-    result = sms_sender.send_sms(phone_number, message)
+    result = sms_sender.queued_send_sms(phone_number, message)
     result['elapsed_time'] = time.time() - start_time
 
     task_store[job_id]['status'] = 'completed'
