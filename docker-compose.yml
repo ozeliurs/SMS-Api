@@ -1,0 +1,12 @@
+version: "3.8"
+
+services:
+  sms-api:
+    image: ozeliurs/sms-api:latest
+    ports:
+      - "8000:8000"
+    environment:
+      BASE_URL: ""
+      PASSWORD: ""
+      API_KEY: ""
+    restart: unless-stopped
